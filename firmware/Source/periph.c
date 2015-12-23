@@ -8,7 +8,7 @@ const uint16_t pwmvalues[LED_FULL+1] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 
 
 void initializeTimer(){
   uint16_t prescaler = (int16_t)(SystemCoreClock / 2000000) - 1; // 2Mhz clock
-  uint16_t period = 1000000 / 20000; // 40 KHz for 2MHz prescaled
+  uint16_t period = 2000000 / 20000; // 20 KHz for 2MHz prescaled
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
   TIM_TimeBaseInitTypeDef init = {
     .TIM_Prescaler         = prescaler,
@@ -21,7 +21,6 @@ void initializeTimer(){
   TIM_Cmd(TIM3, ENABLE);
   TIM_OC1PreloadConfig(TIM3, TIM_OCPreload_Enable);
 }
-  // TIM3_CH1 PA6 no remap
 
 void setPWM(uint16_t pulse){
   static TIM_OCInitTypeDef init = {
@@ -34,19 +33,17 @@ void setPWM(uint16_t pulse){
 }
 
 void initializeLED(){
-  //    RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
   GPIO_InitTypeDef gpioStructure;
   gpioStructure.GPIO_Pin = GPIO_Pin_6;
   gpioStructure.GPIO_Mode = GPIO_Mode_AF_PP;
   gpioStructure.GPIO_Speed = GPIO_Speed_2MHz;
   GPIO_Init(GPIOA, &gpioStructure);
-  // GPIO_PinAFConfig(GPIOA, GPIO_PinSource6, GPIO_AF_TIM3);
 }
 
 void setLed(uint16_t brightness){
   static uint16_t value = 0;
   if(brightness != value){
-    setPWM(pwmvalues[brightness]);
+    setPWM(pwmvalues[brightness]); // pw: 0 to 100
     value = brightness;
   }
 }
@@ -55,56 +52,12 @@ char* getFirmwareVersion(){
   return HARDWARE_VERSION "-" FIRMWARE_VERSION ;
 }
 
-/* Unique device ID register (96 bits: 12 bytes) */
-uint8_t* getDeviceId(){
-  const uint32_t* addr = (uint32_t*)0x1fff7a10;
-  static uint32_t deviceId[3];
-  deviceId[0] = addr[0];
-  deviceId[1] = addr[1];
-  deviceId[2] = addr[2];
-  return (uint8_t*)deviceId;
-
-  // read location 0xE0042000
-  // 16 bits revision id, 4 bits reserved, 12 bits device id
-  /* 0x1000 = Revision A, 0x1001 = Revision Z */
-
-/* The ARM CortexTM-M4F integrates a JEDEC-106 ID code. It is located in the 4KB ROM table mapped on the internal PPB bus at address 0xE00FF000_0xE00FFFFF. */
-
-/*   return DBGMCU_GetREVID() << 16 | DBGMCU_GetDEVID(); */
-}
-
-__attribute__((naked))
-void dfu_reboot(void){
-  /* asm volatile("ldr  r0, =0x1fff0000\n" */
-  /* 	       "ldr  sp, [r0, #0]\n" */
-  /* 	       "ldr  r0, [r0, #4]\n" */
-  /* 	       "bx   r0\n"); */
-
-  /* This address is within the first 64k of memory.
-   * The magic number must match what is in the bootloader */
-  *((unsigned long *)0x2000FFF0) = 0xaeaaefaf ^ 0x00f00b44ff;
-
-  NVIC_SystemReset();
-
-  /* Shouldn't get here */
-  while(1);
-}
-
-/* LedPin getLed(){ */
-/*   if(getPin(LED_PORT, LED_GREEN)) */
-/*     return GREEN; */
-/*   else if(getPin(LED_PORT, LED_RED)) */
-/*     return RED; */
-/*   else */
-/*     return NONE; */
-/* } */
-
 void ledSetup(){
   configureDigitalOutput(LED_PORT, LED_RED|LED_GREEN);
   clearPin(LED_PORT, LED_RED|LED_GREEN);
   initializeLED();
   initializeTimer();
-  setPWM(0); // pw: 1 to 50
+  setPWM(0);
 }
 
 bool isPushButtonPressed(){
