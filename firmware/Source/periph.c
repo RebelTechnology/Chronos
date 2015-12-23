@@ -4,10 +4,11 @@
 #include "device.h"
 #include "gpio.h"
 
+const uint16_t pwmvalues[LED_FULL+1] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 9, 9, 9, 10, 10, 11, 11, 12, 13, 13, 14, 15, 15, 16, 17, 18, 18, 19, 20, 21, 22, 23, 24, 26, 27, 28, 29, 31, 32, 34, 35, 37, 39, 41, 43, 45, 47, 49, 51, 54, 56, 59, 62, 65, 68, 71, 74, 78, 82, 86, 90, 94, 100 };
 
 void initializeTimer(){
-  uint16_t prescaler = (int16_t)(SystemCoreClock / 1000000) - 1; // 1Mhz clock
-  uint16_t period = 1000000 / 20000; // 20 KHz for 1MHz prescaled
+  uint16_t prescaler = (int16_t)(SystemCoreClock / 2000000) - 1; // 2Mhz clock
+  uint16_t period = 1000000 / 20000; // 40 KHz for 2MHz prescaled
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
   TIM_TimeBaseInitTypeDef init = {
     .TIM_Prescaler         = prescaler,
@@ -18,17 +19,18 @@ void initializeTimer(){
   };
   TIM_TimeBaseInit(TIM3, &init);
   TIM_Cmd(TIM3, ENABLE);
+  TIM_OC1PreloadConfig(TIM3, TIM_OCPreload_Enable);
 }
   // TIM3_CH1 PA6 no remap
 
 void setPWM(uint16_t pulse){
-  TIM_OCInitTypeDef outputChannelInit = {0,};
-  outputChannelInit.TIM_OCMode = TIM_OCMode_PWM1;
-  outputChannelInit.TIM_Pulse = pulse;
-  outputChannelInit.TIM_OutputState = TIM_OutputState_Enable;
-  outputChannelInit.TIM_OCPolarity = TIM_OCPolarity_High;
-  TIM_OC1Init(TIM3, &outputChannelInit);
-  TIM_OC1PreloadConfig(TIM3, TIM_OCPreload_Enable);
+  static TIM_OCInitTypeDef init = {
+    .TIM_OCMode = TIM_OCMode_PWM1,
+    .TIM_OutputState = TIM_OutputState_Enable,
+    .TIM_OCPolarity = TIM_OCPolarity_High
+  };
+  init.TIM_Pulse = pulse;
+  TIM_OC1Init(TIM3, &init);
 }
 
 void initializeLED(){
@@ -42,23 +44,15 @@ void initializeLED(){
 }
 
 void setLed(uint16_t brightness){
-  //void setLed(LedPin led){
-  setPWM(brightness);
-  /* clearPin(LED_PORT, led ^ (LED_RED|LED_GREEN)); */
-  /* setPin(LED_PORT, led); */
+  static uint16_t value = 0;
+  if(brightness != value){
+    setPWM(pwmvalues[brightness]);
+    value = brightness;
+  }
 }
-
-/* void toggleLed(){ */
-/*   togglePin(LED_PORT, LED_RED|LED_GREEN); */
-/* } */
 
 char* getFirmwareVersion(){ 
   return HARDWARE_VERSION "-" FIRMWARE_VERSION ;
-}
-
-bool isClockExternal(){
-/* return RCC_HSE_ON */
-  return RCC_WaitForHSEStartUp() == SUCCESS;
 }
 
 /* Unique device ID register (96 bits: 12 bytes) */

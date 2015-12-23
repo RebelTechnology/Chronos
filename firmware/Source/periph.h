@@ -17,7 +17,7 @@
    /*   RED   = LED_RED */
    /* }  LedPin; */
 
-#define LED_FULL 50
+#define LED_FULL 100
    /* LedPin getLed(); */
    void setLed(uint16_t brightness);
    /* void setLed(LedPin led); */

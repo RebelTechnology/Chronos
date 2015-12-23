@@ -162,8 +162,10 @@ public:
 	setHigh();
       else if(counter >= goLow && isHigh)
 	setLow();
-      else
+      else if(isSineMode())
 	setLed(LED_FULL*(goHigh-counter)/goHigh);
+      else
+	setLed(LED_FULL*counter/goHigh);
     }
   }
   void setLow(){
