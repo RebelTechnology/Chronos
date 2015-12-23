@@ -17,4 +17,4 @@ OBJS += $(BUILD)/system_stm32f10x.o
 OBJS += $(BUILD)/startup_stm32f10x_md_vl.o # medium density value line
 
 # include common make file
-include $(TEMPLATEROOT)/Makefile.f1
+include $(TEMPLATEROOT)/f1.mk

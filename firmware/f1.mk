@@ -34,4 +34,4 @@ CFLAGS += -fno-builtin -std=c99
 CXXFLAGS += $(ARCH_FLAGS) $(INC_FLAGS) $(DEF_FLAGS)
 LDFLAGS += -T$(LDSCRIPT) $(ARCH_FLAGS)
 
-include $(TEMPLATEROOT)/Makefile.common
+include $(TEMPLATEROOT)/common.mk1
