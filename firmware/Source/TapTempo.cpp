@@ -58,6 +58,7 @@ private:
   int32_t period;
   bool isHigh;  
   SynchroniserMode mode;
+public:
   uint16_t speed;
 public:
   Synchroniser() : trig(TRIGGER_LIMIT), period(0),
@@ -107,32 +108,42 @@ public:
 class TapTempo {
 private:
   int32_t counter;
-  int32_t limit;
+  int32_t goLow;
+  int32_t goHigh;
   int32_t trig;
   bool isHigh;  
   bool on;
-  uint16_t speed;
 public:
-  TapTempo() : counter(0), limit(TRIGGER_LIMIT/2), trig(TRIGGER_LIMIT), 
-	       isHigh(false), on(false), speed(4095) {}
+  uint16_t speed;
+  TapTempo() : counter(0), goLow(TRIGGER_LIMIT>>2), goHigh(TRIGGER_LIMIT>>2), 
+	       trig(TRIGGER_LIMIT), isHigh(false), on(false), speed(4095) {}	       
   void reset(){
     counter = 0;
-    low();
+    setLow();
   }
-  void trigger(){
+  void trigger(bool high){
     if(trig < TAP_THRESHOLD)
       return;
     if(trig < TRIGGER_LIMIT){
-      high();
-      limit = trig>>1; // toggle at period divided by 2
-      counter = 0;
+      if(high){
+	setHigh();
+	goHigh = trig;
+	counter = 0;
+	trig = 0;
+      }else{
+	setLow();
+	goLow = trig;
+      }
+    }else if(high){
+      trig = 0;
     }
-    trig = 0;
   }
   void setSpeed(int16_t s){
     if(abs(speed-s) > 16){
-      int64_t delta = (int64_t)limit*(speed-s)/2048;
-      limit = max(1, limit+delta);
+      int64_t delta = (int64_t)goLow*(speed-s)/2048;
+      goLow = max(1, goLow+delta);
+      delta = (int64_t)goHigh*(speed-s)/2048;
+      goHigh = max(1, goHigh+delta);
       speed = s;
     }
   }
@@ -144,26 +155,32 @@ public:
   void clock(){
     if(trig < TRIGGER_LIMIT)
       trig++;
-    if(on && ++counter > limit){
+    if(++counter >= goHigh)
       counter = 0;
-      toggle();
+    if(on){
+      if(counter == 0)
+	setHigh();
+      else if(counter >= goLow && isHigh)
+	setLow();
+      else
+	setLed(LED_FULL*(goHigh-counter)/goHigh);
     }
   }
-  void low(){
+  void setLow(){
     isHigh = false;
     setPin(TRIGGER_OUTPUT_PORT, TRIGGER_OUTPUT_PIN);
-    setLed(NONE);    
+    setLed(0);    
   }
-  void high(){
+  void setHigh(){
     isHigh = true;
     clearPin(TRIGGER_OUTPUT_PORT, TRIGGER_OUTPUT_PIN);
-    setLed(RED);
+    setLed(LED_FULL);
   }
   void toggle(){
     if(isHigh)
-      low();
+      setLow();
     else
-      high();
+      setHigh();
   }
 };
 
@@ -172,12 +189,7 @@ TapTempo tempo;
 
 // todo: proper debouncing with systick counter
 void buttonCallback(){
-  if(isPushButtonPressed()){
-    tempo.trigger();
-    // toggleLed();
-  }else{
-    tempo.low();
-  }
+  tempo.trigger(isPushButtonPressed());
 }
 
 void triggerCallback(){
@@ -226,13 +238,17 @@ void setup(){
   configureDigitalOutput(GPIOB, GPIO_Pin_10); // debug
 #endif
   ledSetup();
-  setLed(RED);
+  setLed(0);
   adcSetup();
   dacSetup();
   triggerInputSetup(triggerCallback);
   pushButtonSetup(buttonCallback);
   timerSetup(TIMER_PERIOD, timerCallback);
+  updateSpeed();
+  synchro.speed = getAnalogValue(0);
+  tempo.speed = getAnalogValue(0);
 }
+
 
 void run(){
   for(;;){

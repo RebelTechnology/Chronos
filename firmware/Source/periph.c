@@ -5,14 +5,52 @@
 #include "gpio.h"
 
 
-void setLed(LedPin led){
-  clearPin(LED_PORT, led ^ (LED_RED|LED_GREEN));
-  setPin(LED_PORT, led);
+void initializeTimer(){
+  uint16_t prescaler = (int16_t)(SystemCoreClock / 1000000) - 1; // 1Mhz clock
+  uint16_t period = 1000000 / 20000; // 20 KHz for 1MHz prescaled
+  RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
+  TIM_TimeBaseInitTypeDef init = {
+    .TIM_Prescaler         = prescaler,
+    .TIM_CounterMode       = TIM_CounterMode_Up,
+    .TIM_Period            = period,
+    .TIM_ClockDivision     = TIM_CKD_DIV1,
+    .TIM_RepetitionCounter = 0
+  };
+  TIM_TimeBaseInit(TIM3, &init);
+  TIM_Cmd(TIM3, ENABLE);
+}
+  // TIM3_CH1 PA6 no remap
+
+void setPWM(uint16_t pulse){
+  TIM_OCInitTypeDef outputChannelInit = {0,};
+  outputChannelInit.TIM_OCMode = TIM_OCMode_PWM1;
+  outputChannelInit.TIM_Pulse = pulse;
+  outputChannelInit.TIM_OutputState = TIM_OutputState_Enable;
+  outputChannelInit.TIM_OCPolarity = TIM_OCPolarity_High;
+  TIM_OC1Init(TIM3, &outputChannelInit);
+  TIM_OC1PreloadConfig(TIM3, TIM_OCPreload_Enable);
 }
 
-void toggleLed(){
-  togglePin(LED_PORT, LED_RED|LED_GREEN);
+void initializeLED(){
+  //    RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOD, ENABLE);
+  GPIO_InitTypeDef gpioStructure;
+  gpioStructure.GPIO_Pin = GPIO_Pin_6;
+  gpioStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+  gpioStructure.GPIO_Speed = GPIO_Speed_2MHz;
+  GPIO_Init(GPIOA, &gpioStructure);
+  // GPIO_PinAFConfig(GPIOA, GPIO_PinSource6, GPIO_AF_TIM3);
 }
+
+void setLed(uint16_t brightness){
+  //void setLed(LedPin led){
+  setPWM(brightness);
+  /* clearPin(LED_PORT, led ^ (LED_RED|LED_GREEN)); */
+  /* setPin(LED_PORT, led); */
+}
+
+/* void toggleLed(){ */
+/*   togglePin(LED_PORT, LED_RED|LED_GREEN); */
+/* } */
 
 char* getFirmwareVersion(){ 
   return HARDWARE_VERSION "-" FIRMWARE_VERSION ;
@@ -58,18 +96,21 @@ void dfu_reboot(void){
   while(1);
 }
 
-LedPin getLed(){
-  if(getPin(LED_PORT, LED_GREEN))
-    return GREEN;
-  else if(getPin(LED_PORT, LED_RED))
-    return RED;
-  else
-    return NONE;
-}
+/* LedPin getLed(){ */
+/*   if(getPin(LED_PORT, LED_GREEN)) */
+/*     return GREEN; */
+/*   else if(getPin(LED_PORT, LED_RED)) */
+/*     return RED; */
+/*   else */
+/*     return NONE; */
+/* } */
 
 void ledSetup(){
   configureDigitalOutput(LED_PORT, LED_RED|LED_GREEN);
   clearPin(LED_PORT, LED_RED|LED_GREEN);
+  initializeLED();
+  initializeTimer();
+  setPWM(0); // pw: 1 to 50
 }
 
 bool isPushButtonPressed(){
@@ -385,7 +426,7 @@ void dacSetup(){
   /* /\* Set DAC Channel2 data *\/ */
   /* DAC_SetChannel2Data(DAC_Align_12b_L, 0x7FF0); */
 
-  /* /\* Start DAC Channel1 conversion by software *\/ */
+  /* Start DAC Channel1 conversion by software */
   DAC_SoftwareTriggerCmd(DAC_Channel_1, ENABLE);
   DAC_SoftwareTriggerCmd(DAC_Channel_2, ENABLE);
 }

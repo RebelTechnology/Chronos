@@ -11,15 +11,17 @@
  extern "C" {
 #endif
 
-   typedef enum {
-     NONE  = 0,
-     GREEN = LED_GREEN,
-     RED   = LED_RED
-   }  LedPin;
+   /* typedef enum { */
+   /*   NONE  = 0, */
+   /*   GREEN = LED_GREEN, */
+   /*   RED   = LED_RED */
+   /* }  LedPin; */
 
-   LedPin getLed();
-   void setLed(LedPin led);
-   void toggleLed();
+#define LED_FULL 50
+   /* LedPin getLed(); */
+   void setLed(uint16_t brightness);
+   /* void setLed(LedPin led); */
+   /* void toggleLed(); */
 
    void ledSetup();
    void pushButtonSetup(void (*f)());
