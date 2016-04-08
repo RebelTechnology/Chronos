@@ -11,7 +11,7 @@
 #define TIMER_PERIOD      300 // 20kHz sampling rate
 #define TRIGGER_THRESHOLD 16  // 1250Hz at 20kHz sampling rate
 #define TAP_THRESHOLD     256 // 78Hz at 20kHz sampling rate, or 16th notes at 293BPM
-#define TRIGGER_LIMIT     INT32_MAX
+#define TRIGGER_LIMIT     UINT32_MAX
 /* At 20kHz sampling frequency (TIMER_PERIOD 300), a 32-bit counter will 
  * overflow every 59.65 hours. With 63 bits it overflows every 14623560 years.
  */
@@ -54,8 +54,8 @@ enum SynchroniserMode {
 
 class Synchroniser {
 private:
-  int32_t trig;
-  int32_t period;
+  volatile uint32_t trig;
+  uint32_t period;
   bool isHigh;  
   SynchroniserMode mode;
 public:
@@ -107,10 +107,10 @@ public:
 
 class TapTempo {
 private:
-  int32_t counter;
-  int32_t goLow;
-  int32_t goHigh;
-  int32_t trig;
+  volatile uint32_t counter;
+  uint32_t goLow;
+  uint32_t goHigh;
+  uint32_t trig;
   bool isHigh;  
   bool on;
 public:
@@ -155,17 +155,17 @@ public:
   void clock(){
     if(trig < TRIGGER_LIMIT)
       trig++;
-    if(++counter >= goHigh)
-      counter = 0;
     if(on){
-      if(counter == 0)
+      if(++counter >= goHigh){
 	setHigh();
-      else if(counter >= goLow && isHigh)
+	counter = 0;
+      }else if(counter >= goLow && isHigh){
 	setLow();
-      else if(isSineMode())
-	setLed(LED_FULL*(goHigh-counter)/goHigh);
+      }
+      if(isSineMode())
+	setLed(LED_FULL*(goHigh-counter)/(goHigh+1));
       else
-	setLed(LED_FULL*counter/goHigh);
+	setLed(LED_FULL*counter/(goHigh+1));
     }
   }
   void setLow(){
