@@ -115,8 +115,8 @@ private:
   bool on;
 public:
   uint16_t speed;
-  TapTempo() : counter(0), goLow(TRIGGER_LIMIT>>2), goHigh(TRIGGER_LIMIT>>2), 
-	       trig(TRIGGER_LIMIT), isHigh(false), on(false), speed(4095) {}	       
+  TapTempo() : counter(0), goLow(TRIGGER_LIMIT>>2), goHigh(TRIGGER_LIMIT>>1), 
+	       trig(0), isHigh(false), on(false), speed(4095) {}	       
   void reset(){
     counter = 0;
     setLow();
@@ -128,11 +128,11 @@ public:
       if(high){
 	setHigh();
 	goHigh = trig;
+	goLow = trig>>1;
 	counter = 0;
 	trig = 0;
       }else{
 	setLow();
-	goLow = trig;
       }
     }else if(high){
       trig = 0;
@@ -140,10 +140,11 @@ public:
   }
   void setSpeed(int16_t s){
     if(abs(speed-s) > 16){
-      int64_t delta = (int64_t)goLow*(speed-s)/2048;
-      goLow = max(1, goLow+delta);
-      delta = (int64_t)goHigh*(speed-s)/2048;
+      // int64_t delta = (int64_t)goLow*(speed-s)/2048;
+      // goLow = max(1, goLow+delta);
+      int64_t delta = (int64_t)goHigh*(speed-s)/2048;
       goHigh = max(1, goHigh+delta);
+      goLow = goHigh >> 1;
       speed = s;
     }
   }
