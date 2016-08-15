@@ -35,19 +35,15 @@ public:
   inline void setPeriod(DDS_DATATYPE t){
     tuning = DDS_ACCUMULATOR_PERIOD/(t+1);
   }
-  inline void reset(){
-    accumulator = 0;
-  }
-  /* increment phase accumulator */
-  inline void clock(){
-    accumulator += tuning;
+  inline DDS_DATATYPE inc(){
+    return tuning;
   }
   /* return 12-bit waveforms */
-  inline uint16_t getRisingRamp(){
+  static inline uint16_t getRisingRamp(DDS_DATATYPE accumulator){
     DDS_DATATYPE val = accumulator >> (DDS_ACCUMULATOR_WIDTH - 12);
     return DDS_RAMP_RANGE - (val * DDS_RAMP_RANGE)/4095 + DDS_MIN_RAMP_VALUE;
   }
-  inline uint16_t getFallingRamp(){
+  static inline uint16_t getFallingRamp(DDS_DATATYPE accumulator){
     DDS_DATATYPE val = accumulator >> (DDS_ACCUMULATOR_WIDTH - 12);
     return (val * DDS_RAMP_RANGE)/4095 + DDS_MIN_RAMP_VALUE;
   }
@@ -55,11 +51,10 @@ public:
   /*   uint16_t tri = accumulator >> (DDS_ACCUMULATOR_WIDTH - 13); */
   /*   return 4095 - min(abs(4095 - tri), 4095); */
   /* } */
-  uint16_t getSine();
-  uint16_t getTri();
+  static uint16_t getSine(DDS_DATATYPE accumulator);
+  static uint16_t getTri(DDS_DATATYPE accumulator);
 
 private:
-  volatile DDS_DATATYPE accumulator;   // phase accumulator
   volatile DDS_DATATYPE tuning;  // dds tuning word
 };
 

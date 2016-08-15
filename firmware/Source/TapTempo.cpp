@@ -46,8 +46,6 @@ inline bool isTriangleMode(){
   return !getPin(TOGGLE_L_PORT, TOGGLE_L_PIN_A);
 }
 
-DDS dds;
-
 enum SynchroniserMode {
   OFF, SINE, TRIANGLE
 };
@@ -60,6 +58,8 @@ private:
   SynchroniserMode mode;
 public:
   uint16_t speed;
+  DDS dds;
+  uint32_t sine, saw;
 public:
   Synchroniser() : trig(TRIGGER_LIMIT), period(0),
 	       isHigh(false), mode(OFF), speed(4095) {
@@ -67,7 +67,7 @@ public:
   }
   void reset(){
     trig = TRIGGER_LIMIT;
-    dds.reset();
+    sine = saw = 0; // reset phase accumulators
     DAC_SetDualChannelData(DAC_Align_12b_R, DDS_RAMP_ZERO_VALUE, DDS_SINE_ZERO_VALUE);
   }
   void trigger(){
@@ -78,6 +78,7 @@ public:
       dds.setPeriod(period);
     }
     trig = 0;
+    saw = 0; // phase reset
   }
   void setSpeed(int16_t s){
     if(abs(speed-s) > 16){
@@ -96,11 +97,13 @@ public:
     if(trig < TRIGGER_LIMIT)
       trig++;
     if(mode == SINE){
-      DAC_SetDualChannelData(DAC_Align_12b_R, dds.getRisingRamp(), dds.getSine());
-      dds.clock();
+      DAC_SetDualChannelData(DAC_Align_12b_R, dds.getRisingRamp(saw), dds.getSine(sine));
+      saw += dds.inc();
+      sine += dds.inc();
     }else if(mode == TRIANGLE){
-      DAC_SetDualChannelData(DAC_Align_12b_R, dds.getFallingRamp(), dds.getTri());
-      dds.clock();
+      DAC_SetDualChannelData(DAC_Align_12b_R, dds.getFallingRamp(saw), dds.getTri(sine));
+      saw += dds.inc();
+      sine += dds.inc();
     }
   }
 };

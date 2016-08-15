@@ -15,13 +15,13 @@ void DDS::init(){
 // //   tword_m = (unsigned long)(pow(2,32)*freq/REFCLK); // calulate DDS new tuning word
 // }
 
-uint16_t DDS::getSine(){
+uint16_t DDS::getSine(DDS_DATATYPE accumulator){
   uint16_t icnt = accumulator >> (DDS_ACCUMULATOR_WIDTH - 12); // use upper bits of phase accumulator
   // read value from wave table
   return sinewave[icnt];
 }
 
-uint16_t DDS::getTri(){
+uint16_t DDS::getTri(DDS_DATATYPE accumulator){
   uint16_t icnt = accumulator >> (DDS_ACCUMULATOR_WIDTH - 12);
   return trianglewave[icnt];
 }

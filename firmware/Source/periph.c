@@ -4,11 +4,13 @@
 #include "device.h"
 #include "gpio.h"
 
-const uint16_t pwmvalues[LED_FULL+1] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 9, 9, 9, 10, 10, 11, 11, 12, 13, 13, 14, 15, 15, 16, 17, 18, 18, 19, 20, 21, 22, 23, 24, 26, 27, 28, 29, 31, 32, 34, 35, 37, 39, 41, 43, 45, 47, 49, 51, 54, 56, 59, 62, 65, 68, 71, 74, 78, 82, 86, 90, 94, 100 };
+const uint16_t pwmvalues[LED_FULL+1] = { 
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 7, 8, 8, 9, 10, 10, 11, 12, 13, 14, 16, 17, 18, 20, 21, 23, 25, 27, 29, 32, 34, 37, 40, 43, 47, 50, 55, 59, 64, 69, 74, 80, 87, 94, 101, 110, 118, 128, 138, 149, 161, 174, 188, 203, 219, 237, 256, 277, 299, 323, 349, 377, 407, 439, 474, 512, 553, 598, 646, 697, 753, 813, 879, 949, 1025, 1107, 1195, 1291, 1394, 1506, 1627, 1757 
+};
 
 void initializeTimer(){
   uint16_t prescaler = (int16_t)(SystemCoreClock / 2000000) - 1; // 2Mhz clock
-  uint16_t period = 2000000 / 20000; // 20 KHz for 2MHz prescaled
+  uint16_t period = 2000000 / 2000; // 2 kHz for 2MHz prescaled
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
   TIM_TimeBaseInitTypeDef init = {
     .TIM_Prescaler         = prescaler,
@@ -20,16 +22,18 @@ void initializeTimer(){
   TIM_TimeBaseInit(TIM3, &init);
   TIM_Cmd(TIM3, ENABLE);
   TIM_OC1PreloadConfig(TIM3, TIM_OCPreload_Enable);
+
+  TIM_OCInitTypeDef initoc = {
+    .TIM_OCMode = TIM_OCMode_PWM1,
+    .TIM_OutputState = TIM_OutputState_Enable,
+    .TIM_OCPolarity = TIM_OCPolarity_High,
+    .TIM_Pulse = 0
+  };
+  TIM_OC1Init(TIM3, &initoc);
 }
 
 void setPWM(uint16_t pulse){
-  static TIM_OCInitTypeDef init = {
-    .TIM_OCMode = TIM_OCMode_PWM1,
-    .TIM_OutputState = TIM_OutputState_Enable,
-    .TIM_OCPolarity = TIM_OCPolarity_High
-  };
-  init.TIM_Pulse = pulse;
-  TIM_OC1Init(TIM3, &init);
+  TIM3->CCR1 = pulse;
 }
 
 void initializeLED(){
@@ -57,7 +61,6 @@ void ledSetup(){
   clearPin(LED_PORT, LED_RED|LED_GREEN);
   initializeLED();
   initializeTimer();
-  setPWM(0);
 }
 
 bool isPushButtonPressed(){
