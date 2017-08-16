@@ -3,8 +3,8 @@ ELF=$(BUILD)/TapTempo.elf
 BIN=$(BUILD)/TapTempo.bin
 
 # Tool path
-TOOLROOT=~/devel/OwlWare/Tools/gcc-arm-none-eabi-5_2-2015q4/bin
-STLINK=~/devel/stlink/build
+TOOLROOT=~/devel/OwlWare/Tools/gcc-arm-none-eabi-5_4-2016q3/bin
+STLINK=~/devel/stlink/build/Release
 
 # Tools
 CC=$(TOOLROOT)/arm-none-eabi-gcc
