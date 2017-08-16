@@ -1,6 +1,6 @@
 #include <inttypes.h>
 
-#define FIRMWARE_VERSION             "003"
+#define FIRMWARE_VERSION             "004"
 #define HARDWARE_VERSION             "TapTempo Rev03"
 
 /*
