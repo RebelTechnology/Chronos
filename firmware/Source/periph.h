@@ -3,9 +3,9 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "stm32f10x.h"
-#include "device.h"
-#include "gpio.h"
+#include "stm32f1xx_hal.h"
+/* #include "device.h" */
+/* #include "gpio.h" */
 
 #ifdef __cplusplus
  extern "C" {
@@ -19,25 +19,24 @@
 
 #define LED_FULL 127
    /* LedPin getLed(); */
-   void setLed(uint16_t brightness);
+   void setLed1(uint16_t brightness);
+   void setLed2(uint16_t brightness);
    /* void setLed(LedPin led); */
    /* void toggleLed(); */
 
-   void ledSetup();
-   void pushButtonSetup(void (*f)());
-   void triggerInputSetup(void (*f)());
-   void timerSetup(uint16_t period, void (*f)());
-   void timerSet(uint16_t period);
-   void dacSetup();
-   void adcSetup();
-   uint16_t getAnalogValue(uint8_t index);
-   uint16_t* getAnalogValues();
+   /* void ledSetup(); */
+   /* void pushButtonSetup(void (*f)()); */
+   /* void triggerInputSetup(void (*f)()); */
+   /* void timerSetup(uint16_t period, void (*f)()); */
+   /* void timerSet(uint16_t period); */
+   /* void dacSetup(); */
+   /* void adcSetup(); */
 
-   bool isPushButtonPressed();
-   bool isTriggerHigh();
+   /* uint16_t getAnalogValue(uint8_t index); */
+   /* uint16_t* getAnalogValues(); */
 
-   void setupSwitchA(void (*f)());
-   void setupSwitchB(void (*f)());
+   /* void setupSwitchA(void (*f)()); */
+   /* void setupSwitchB(void (*f)()); */
 
 #ifdef __cplusplus
 }

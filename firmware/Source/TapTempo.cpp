@@ -1,6 +1,39 @@
 #include <stdlib.h>
-#include "periph.h"
+#include "main.h"
+#include "stm32f1xx_hal.h"
 #include "DDS.h"
+#include "gpio.h"
+#include "periph.h"
+
+// #define DEBUG_PINS
+
+extern "C"{
+  void setup();
+  void loop();
+  extern DAC_HandleTypeDef hdac;
+  extern ADC_HandleTypeDef hadc1;
+  extern TIM_HandleTypeDef htim1; // LED1
+  extern TIM_HandleTypeDef htim2; // internal clock
+  extern TIM_HandleTypeDef htim3; // LED2
+  extern TIM_HandleTypeDef htim6; // DAC trigger
+}
+
+#define NOF_ADC_VALUES 2
+uint16_t adc_values[NOF_ADC_VALUES];
+
+uint16_t getAnalogValue(uint8_t index){
+  return adc_values[index];
+}
+
+#ifndef min
+#define min(a,b) ((a)<(b)?(a):(b))
+#endif /* min */
+#ifndef max
+#define max(a,b) ((a)>(b)?(a):(b))
+#endif /* max */
+#ifndef abs
+#define abs(x) ((x)>0?(x):-(x))
+#endif /* abs */
 
 /* period 3000: 1kHz toggle
  *        1000: 3kHz
@@ -22,104 +55,96 @@
 /* #define DEBOUNCE(nm, ms) if(true){static uint32_t nm ## Debounce = 0; \
 if(getSysTicks() < nm ## Debounce+(ms)) return; nm ## Debounce = getSysTicks();} */
 
-void setAnalogValue(uint8_t channel, uint16_t value){
-  value = value & 0xfff;
-  if(channel == 0)
-    DAC_SetChannel1Data(DAC_Align_12b_R, value);
-  else if(channel == 1)
-    DAC_SetChannel2Data(DAC_Align_12b_R, value);
-}
-
-inline bool isSlowMode(){
-  return !getPin(TOGGLE_R_PORT, TOGGLE_R_PIN_B);
-}
-
-inline bool isFastMode(){
-  return !getPin(TOGGLE_R_PORT, TOGGLE_R_PIN_A);
-}
-
-inline bool isSineMode(){
-  return !getPin(TOGGLE_L_PORT, TOGGLE_L_PIN_B);
-}
-
-inline bool isTriangleMode(){
-  return !getPin(TOGGLE_L_PORT, TOGGLE_L_PIN_A);
-}
-
-enum SynchroniserMode {
-  OFF, SINE, TRIANGLE
+enum Channel {
+  CH1, CH2
 };
 
-class Synchroniser {
-private:
-  volatile uint32_t trig;
-  uint32_t period;
-  bool isHigh;  
-  SynchroniserMode mode;
-public:
-  uint16_t speed;
-  DDS dds;
-  uint32_t sine, saw;
-public:
-  Synchroniser() : trig(TRIGGER_LIMIT), period(0),
-	       isHigh(false), mode(OFF), speed(4095) {
-    dds.setPeriod(period);
-  }
-  void reset(){
-    trig = TRIGGER_LIMIT;
-    sine = saw = 0; // reset phase accumulators
-    DAC_SetDualChannelData(DAC_Align_12b_R, DDS_RAMP_ZERO_VALUE, DDS_SINE_ZERO_VALUE);
-  }
-  void trigger(){
-    if(trig < TRIGGER_THRESHOLD)
-      return;
-    if(trig < TRIGGER_LIMIT){
-      period = trig;
-      dds.setPeriod(period);
-    }
-    trig = 0;
-    saw = 0; // phase reset
-  }
-  void setSpeed(int16_t s){
-    if(abs(speed-s) > 16){
-      int64_t delta = (int64_t)period*(speed-s)/1024;
-      period = max(1, period+delta);
-      dds.setPeriod(period);
-      speed = s;
-    }
-  }
-  void setMode(SynchroniserMode m){
-    if(m == OFF && mode != OFF)
-      reset();
-    mode = m;
-  }
-  void clock(){
-    if(trig < TRIGGER_LIMIT)
-      trig++;
-    if(mode == SINE){
-      DAC_SetDualChannelData(DAC_Align_12b_R, dds.getRisingRamp(saw), dds.getSine(sine));
-      saw += dds.inc();
-      sine += dds.inc();
-    }else if(mode == TRIANGLE){
-      DAC_SetDualChannelData(DAC_Align_12b_R, dds.getFallingRamp(saw), dds.getTri(sine));
-      saw += dds.inc();
-      sine += dds.inc();
-    }
-  }
+enum OperatingMode {
+  OFF, UP, DOWN
 };
 
+OperatingMode getMode(Channel ch){  
+  switch(ch){
+  case CH1:
+    if(!getPin(SW1A_GPIO_Port, SW1A_Pin))
+      return DOWN;
+    else if(!getPin(SW1B_GPIO_Port, SW1B_Pin))
+      return UP;
+    else
+      return OFF;
+  case CH2:
+    if(!getPin(SW2A_GPIO_Port, SW2A_Pin))
+      return DOWN;
+    else if(!getPin(SW2B_GPIO_Port, SW2B_Pin))
+      return UP;
+    else
+      return OFF;
+  }
+  return OFF;
+}
+
+// void setClock(uint16_t value){
+//   TIM2->CCR1 = value;
+// }
+
+uint16_t dac_values[4];
+void setAnalogValue(Channel ch, uint16_t value){
+  value &= 0xfff;
+  if(ch == CH1)
+    dac_values[0] = value;
+  else if(ch == CH2)
+    dac_values[1] = value;
+  // if(ch == CH1)
+  //   HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, value);
+  //   // DAC_SetChannel1Data(DAC_Align_12b_R, value);
+  // else if(ch == CH2)
+  //   HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, value);
+  //   // DAC_SetChannel2Data(DAC_Align_12b_R, value);
+}
+
+inline bool isPushButton1Pressed(){
+  return !getPin(PUSH1_GPIO_Port, PUSH1_Pin); 
+}
+
+inline bool isPushButton2Pressed(){
+  return !getPin(PUSH2_GPIO_Port, PUSH2_Pin); 
+}
+
+inline bool isTrigger1High(){
+  return !getPin(TEMPO1_GPIO_Port, TEMPO1_Pin);
+}
+
+inline bool isTrigger2High(){
+  return !getPin(TEMPO2_GPIO_Port, TEMPO2_Pin);
+}
+
+
+DDS dds;
+
+/*
+Synchronised LFO
+- trigger: update period
+- clock: increment phase
+- convert phase to wave: 
+  sine / triangle
+  rising / falling saw
+- occasional: update period from speed
+
+*/
+
+template<Channel CH>
 class TapTempo {
 private:
   volatile uint32_t counter;
   uint32_t goLow;
   uint32_t goHigh;
   uint32_t trig;
-  bool isHigh;  
-  bool on;
+  bool isHigh;
+  volatile OperatingMode mode;
 public:
   uint16_t speed;
   TapTempo() : counter(0), goLow(TRIGGER_LIMIT>>2), goHigh(TRIGGER_LIMIT>>1), 
-	       trig(0), isHigh(false), on(false), speed(4095) {}	       
+	       trig(0), isHigh(false), mode(OFF), speed(4095) {}	       
   void reset(){
     counter = 0;
     setLow();
@@ -151,36 +176,39 @@ public:
       speed = s;
     }
   }
-  void setStatus(bool enable){
-    if(!enable && on)
+  void setMode(OperatingMode op){
+    if(op != mode && op == OFF)
       reset();
-    on = enable;
+    mode = op;
   }
   void clock(){
     if(trig < TRIGGER_LIMIT)
       trig++;
-    if(on){
+    switch(mode){
+    case UP:
       if(++counter >= goHigh){
 	setHigh();
 	counter = 0;
       }else if(counter >= goLow && isHigh){
 	setLow();
+      }else{
+	setValue(LED_FULL*(goHigh-counter)/(goHigh+1));
       }
-      if(isSineMode())
-	setLed(LED_FULL*(goHigh-counter)/(goHigh+1));
-      else
-	setLed(LED_FULL*counter/(goHigh+1));
+      break;
+    case DOWN:
+      if(++counter >= goHigh){
+	setHigh();
+	counter = 0;
+      }else if(counter >= goLow && isHigh){
+	setLow();
+      }else{
+	setValue(LED_FULL*counter/(goHigh+1));
+      }
+      break;
+    case OFF:
+      counter = 0;
+      break;
     }
-  }
-  void setLow(){
-    isHigh = false;
-    setPin(TRIGGER_OUTPUT_PORT, TRIGGER_OUTPUT_PIN);
-    setLed(0);    
-  }
-  void setHigh(){
-    isHigh = true;
-    clearPin(TRIGGER_OUTPUT_PORT, TRIGGER_OUTPUT_PIN);
-    setLed(LED_FULL);
   }
   void toggle(){
     if(isHigh)
@@ -188,77 +216,287 @@ public:
     else
       setHigh();
   }
+  void setLow();
+  void setHigh();
+  void setValue(uint16_t value);
 };
 
-Synchroniser synchro;
-TapTempo tempo;
-
-// todo: proper debouncing with systick counter
-void buttonCallback(){
-  tempo.trigger(isPushButtonPressed());
-}
-
-void triggerCallback(){
-  if(isTriggerHigh()){
-    synchro.trigger();
-  }
-}
-
-void timerCallback(){
-  tempo.clock();
-  synchro.clock();
-#ifdef DEBUG_PINS
-  togglePin(GPIOB, GPIO_Pin_10); // debug
+template<>
+void TapTempo<CH1>::setLow(){
+  isHigh = false;
+#ifndef DEBUG_PINS
+  setPin(TR1_GPIO_Port, TR1_Pin);
 #endif
+  setLed1(0);    
+}
+template<>
+void TapTempo<CH1>::setHigh(){
+  isHigh = true;
+#ifndef DEBUG_PINS
+  clearPin(TR1_GPIO_Port, TR1_Pin);
+#endif
+  setLed1(LED_FULL);
+}
+template<>
+void TapTempo<CH1>::setValue(uint16_t value){
+  setLed1(value);  
+}
+
+template<>
+void TapTempo<CH2>::setLow(){
+  isHigh = false;
+#ifndef DEBUG_PINS
+  setPin(TR2_GPIO_Port, TR2_Pin);
+#endif
+  setLed2(0);    
+}
+template<>
+void TapTempo<CH2>::setHigh(){
+  isHigh = true;
+#ifndef DEBUG_PINS
+  clearPin(TR2_GPIO_Port, TR2_Pin);
+#endif
+  setLed2(LED_FULL);
+}
+template<>
+void TapTempo<CH2>::setValue(uint16_t value){
+  setLed2(value);  
+}
+
+template<Channel CH>
+class Synchroniser {
+private:
+  volatile uint32_t trig;
+  volatile uint32_t ticks;
+  volatile uint32_t period;
+  volatile uint32_t phase;
+  volatile uint32_t tuning;
+  volatile OperatingMode mode;
+  OperatingMode previousMode;
+public:
+  uint16_t speed;
+  Synchroniser() : 
+    trig(TRIGGER_LIMIT), ticks(0), period(TRIGGER_LIMIT), mode(OFF), speed(4095) {
+    setPeriod(period);
+  }
+  void setSpeed(int16_t s){
+    if(abs(speed-s) > 16){
+      int64_t delta = (int64_t)period*(speed-s)/1024;
+      period = max(1, period+delta);
+      setPeriod(period);
+      speed = s;
+    }
+  }
+  void setPeriod(uint32_t t){
+    tuning = UINT32_MAX/(t+1);
+  }
+  void setMode(OperatingMode op){
+    if(op != mode && op == OFF){
+      previousMode = mode;
+      reset();
+    }
+    mode = op;
+  }
+  void trigger(){
+    switch(mode){
+    case OFF: // one shot mode
+      ticks = 1; // start period
+      if(CH == CH2) // reset ramp phase on trigger
+	phase = 0;
+      break;
+    default:
+      if(trig < TRIGGER_THRESHOLD)
+	return;
+      if(trig < TRIGGER_LIMIT){
+	period = trig;
+	setPeriod(period);
+      }
+      trig = 0;
+      if(CH == CH2) // reset ramp phase on trigger
+	phase = 0;
+    }
+  }
+  void reset(){
+    setZeroValue();
+    trig = TRIGGER_LIMIT; // really?
+    phase = 0;
+    ticks = 0; // stop ping
+  }
+  void clock(){
+    switch(mode){
+    case UP:
+      setUpValue(phase);
+      phase += tuning; 
+      if(trig < TRIGGER_LIMIT)
+	trig++;
+     break;
+    case DOWN:
+      setDownValue(phase);
+      phase += tuning;
+      if(trig < TRIGGER_LIMIT)
+	trig++;
+      break;
+    case OFF:
+      if(ticks){ // one shot mode
+	switch(previousMode){
+	case UP:
+	  setUpValue(phase);
+	  phase += tuning;
+	  break;
+	case DOWN:
+	  setDownValue(phase);
+	  phase += tuning;
+	  break;
+	default:
+	  break;
+	}
+	if(ticks++ >= period)
+	  reset();
+      }
+    }
+  }
+  void setUpValue(uint32_t phase);
+  void setDownValue(uint32_t phase);
+  void setZeroValue();
+};
+
+template<>
+void Synchroniser<CH1>::setUpValue(uint32_t phase){
+  setAnalogValue(CH1, dds.getSine(phase));
+}
+template<>
+void Synchroniser<CH1>::setDownValue(uint32_t phase){
+  setAnalogValue(CH1, dds.getTri(phase));
+}
+template<>
+void Synchroniser<CH1>::setZeroValue(){
+  setAnalogValue(CH1, DDS_SINE_ZERO_VALUE);
+}
+template<>
+void Synchroniser<CH2>::setUpValue(uint32_t phase){
+  setAnalogValue(CH2, dds.getRisingRamp(phase));
+}
+template<>
+void Synchroniser<CH2>::setDownValue(uint32_t phase){
+  setAnalogValue(CH2, dds.getFallingRamp(phase));
+}
+template<>
+void Synchroniser<CH2>::setZeroValue(){
+  setAnalogValue(CH2, DDS_RAMP_ZERO_VALUE);
+}
+
+Synchroniser<CH1> synchro1;
+Synchroniser<CH2> synchro2;
+
+TapTempo<CH1> tempo1;
+TapTempo<CH2> tempo2;
+
+extern "C"{
+  void HAL_GPIO_EXTI_Callback(uint16_t pin){
+    switch(pin){
+    case PUSH1_Pin:
+      tempo1.trigger(isPushButton1Pressed());
+      break;
+    case PUSH2_Pin:
+      tempo2.trigger(isPushButton2Pressed());
+      break;
+    case TEMPO1_Pin:
+      synchro1.trigger();
+      break;
+    case TEMPO2_Pin: 
+      synchro2.trigger();
+     break;
+    }
+  }
+
+  void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+#ifdef DEBUG_PINS
+    clearPin(TR2_GPIO_Port, TR2_Pin);
+#endif
+    tempo1.clock();
+    synchro1.clock();
+    tempo2.clock();
+    synchro2.clock();
+#ifdef DEBUG_PINS
+    setPin(TR2_GPIO_Port, TR2_Pin);
+#endif
+  }
+
+  void HAL_ADC_ErrorCallback(ADC_HandleTypeDef *hadc){
+    assert_param(0);
+  }
+  // void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
+  // }
+
+  void HAL_DAC_ErrorCallbackCh1(DAC_HandleTypeDef *hdac){
+    assert_param(0);
+  }
+
+  void HAL_DAC_ErrorCallbackCh2(DAC_HandleTypeDef *hdac){
+    assert_param(0);
+  }
 }
 
 void updateMode(){
-  if(isSineMode()){
-    synchro.setMode(SINE);
-    tempo.setStatus(true);
-  }else if(isTriangleMode()){
-    synchro.setMode(TRIANGLE);
-    tempo.setStatus(true);
-  }else{
-    synchro.setMode(OFF);
-    tempo.setStatus(false);
-  }
+  OperatingMode mode = getMode(CH1);
+  synchro1.setMode(mode);
+  tempo1.setMode(mode);
+  mode = getMode(CH2);
+  synchro2.setMode(mode);
+  tempo2.setMode(mode);
 }
 
 void updateSpeed(){
   int16_t p = getAnalogValue(0);
-  synchro.setSpeed(p);
-  tempo.setSpeed(p);
+  synchro1.setSpeed(p);
+  tempo1.setSpeed(p);
+  p = getAnalogValue(1);
+  synchro2.setSpeed(p);
+  tempo2.setSpeed(p);
 }
 
 void setup(){
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
-  configureDigitalInput(TOGGLE_L_PORT, TOGGLE_R_PIN_A, true);
-  configureDigitalInput(TOGGLE_L_PORT, TOGGLE_R_PIN_B, true);
-  // RCC_APB2PeriphClockCmd(TOGGLE_R_CLOCK, ENABLE);
-  // configureDigitalInput(TOGGLE_R_PORT, TOGGLE_R_PIN_A, true);
-  // configureDigitalInput(TOGGLE_R_PORT, TOGGLE_R_PIN_B, true);
-  configureDigitalOutput(TRIGGER_OUTPUT_PORT, TRIGGER_OUTPUT_PIN);
-#ifdef DEBUG_PINS
-  configureDigitalOutput(GPIOB, GPIO_Pin_10); // debug
-#endif
-  ledSetup();
-  setLed(0);
-  adcSetup();
-  dacSetup();
-  triggerInputSetup(triggerCallback);
-  pushButtonSetup(buttonCallback);
-  timerSetup(TIMER_PERIOD, timerCallback);
-  updateSpeed();
-  synchro.speed = getAnalogValue(0);
-  tempo.speed = getAnalogValue(0);
+  HAL_TIM_Base_Start(&htim6);
+  HAL_DAC_Start(&hdac, DAC_CHANNEL_1);
+  HAL_DAC_Start(&hdac, DAC_CHANNEL_2);
+  HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, (uint32_t*)&dac_values[0], 1, DAC_ALIGN_12B_R);
+  HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_2, (uint32_t*)&dac_values[1], 1, DAC_ALIGN_12B_R);
+
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_values, 2);
+
+  HAL_TIM_Base_Start_IT(&htim2);
+  HAL_TIM_OC_Start_IT(&htim2, TIM_CHANNEL_1);
+
+  HAL_TIM_Base_Start(&htim1); 
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+  HAL_TIM_Base_Start(&htim3); 
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+
+  setLed1(0);
+  setLed2(0);
+
+  synchro1.reset();
+  synchro2.reset();
+  tempo1.reset();
+  tempo2.reset();
+
+  synchro1.speed = getAnalogValue(0);
+  tempo1.speed = getAnalogValue(0);
+  synchro2.speed = getAnalogValue(1);
+  tempo2.speed = getAnalogValue(1);
+
+  updateMode();
+
+  // setClock(300);
 }
 
-
-void run(){
-  for(;;){
-    updateMode();
-    updateSpeed();
-  }
+void loop(){
+#ifdef DEBUG_PINS
+  clearPin(TR1_GPIO_Port, TR1_Pin);
+#endif
+  updateMode();
+  updateSpeed();
+#ifdef DEBUG_PINS
+  setPin(TR1_GPIO_Port, TR1_Pin);
+#endif
 }

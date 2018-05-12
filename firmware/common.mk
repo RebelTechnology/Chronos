@@ -3,8 +3,8 @@ ELF=$(BUILD)/TapTempo.elf
 BIN=$(BUILD)/TapTempo.bin
 
 # Tool path
-TOOLROOT=~/devel/OwlWare/Tools/gcc-arm-none-eabi-7-2017-q4-major/bin
-STLINK=~/bin
+TOOLROOT ?= ~/bin/gcc-arm-none-eabi-7-2017-q4-major/bin
+STLINK = /home/mars/bin
 
 # Tools
 CC=$(TOOLROOT)/arm-none-eabi-gcc
@@ -20,16 +20,12 @@ STUTIL=$(STLINK)/st-util
 DFUUTIL=dfu-util
 
 # Set up search path
+vpath %.c $(TEMPLATEROOT)/Src
 vpath %.cpp $(TEMPLATEROOT)/Source
 vpath %.c $(TEMPLATEROOT)/Source
 vpath %.s $(TEMPLATEROOT)/Source
-vpath %.c $(TEMPLATEROOT)/Libraries/syscalls
-vpath %.c $(CORE)
-vpath %.c $(PERIPH_FILE)/src
-vpath %.c $(PERIPH_FILE)/inc
-vpath %.c $(DEVICE)
-vpath %.c $(SYSTEM_FILE)
-vpath %.s $(STARTUP_FILE)
+# vpath %.c $(CMSIS_DEVICE)/Source
+# vpath %.c $(PERIPH_PATH)/Src
 
 all: bin
 
