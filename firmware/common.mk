@@ -64,7 +64,7 @@ debug: $(ELF)
 	$(GDB) -x gdbscript $(ELF)
 # 	bash -c "$(GDB) -x <(echo target extended localhost:4242) $(ELF)"
 
-flash: $(BIN)
+flash:
 	$(STFLASH) write $(BIN) 0x8000000
 
 stlink:
