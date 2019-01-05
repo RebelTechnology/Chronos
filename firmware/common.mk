@@ -3,20 +3,20 @@ ELF=$(BUILD)/TapTempo.elf
 BIN=$(BUILD)/TapTempo.bin
 
 # Tool path
-TOOLROOT ?= ~/bin/gcc-arm-none-eabi-7-2017-q4-major/bin
-STLINK = /home/mars/bin
+TOOLROOT ?=
+STLINK ?=
 
 # Tools
-CC=$(TOOLROOT)/arm-none-eabi-gcc
-CXX=$(TOOLROOT)/arm-none-eabi-g++
-LD=$(TOOLROOT)/arm-none-eabi-gcc
-AR=$(TOOLROOT)/arm-none-eabi-ar
-AS=$(TOOLROOT)/arm-none-eabi-as
-GDB=$(TOOLROOT)/arm-none-eabi-gdb
-OBJCOPY=$(TOOLROOT)/arm-none-eabi-objcopy
-OBJDUMP=$(TOOLROOT)/arm-none-eabi-objdump
-STFLASH=$(STLINK)/st-flash
-STUTIL=$(STLINK)/st-util
+CC=$(TOOLROOT)arm-none-eabi-gcc
+CXX=$(TOOLROOT)arm-none-eabi-g++
+LD=$(TOOLROOT)arm-none-eabi-gcc
+AR=$(TOOLROOT)arm-none-eabi-ar
+AS=$(TOOLROOT)arm-none-eabi-as
+GDB=$(TOOLROOT)arm-none-eabi-gdb
+OBJCOPY=$(TOOLROOT)arm-none-eabi-objcopy
+OBJDUMP=$(TOOLROOT)arm-none-eabi-objdump
+STFLASH=$(STLINK)st-flash
+STUTIL=$(STLINK)st-util
 DFUUTIL=dfu-util
 
 # Set up search path
